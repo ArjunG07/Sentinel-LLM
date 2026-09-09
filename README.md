@@ -363,15 +363,3 @@ Results depend on the evaluation dataset, model, thresholds, hardware, and exper
 
 License
 License information will be added as the project is finalized.
-
-### Then put it on GitHub
-After creating the file:
-
-```powershell
-git add README.md
-git commit -m "Add project documentation"
-git push
-
-One thing I deliberately didn't put in the README is your current 12/12 = 100% or 60-case results. Your research documentation says the final results should come from the actual frozen experiment and not be treated as predetermined.
-
-Once we run the expanded evaluation, we can add a proper Results section with the actual measured numbers.
