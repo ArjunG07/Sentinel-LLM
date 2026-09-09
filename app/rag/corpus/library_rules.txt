@@ -1,0 +1,4 @@
+Students can borrow up to three books.
+Books must be returned within fourteen days.
+Silence must be maintained inside the library.
+Reference books cannot be taken outside.
