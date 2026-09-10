@@ -10,20 +10,50 @@ CUMULATIVE_RISK_THRESHOLD = 0.70
 
 
 def scan_output(output: str):
-    suspicious_output_patterns = [
-        "system prompt",
-        "developer instructions",
-        "secret key",
-        "api key",
-        "password",
-        "confidential"
-    ]
+    """
+    Scan an LLM response for likely sensitive-information leakage.
+
+    The scanner looks for explicit disclosure patterns rather than
+    blocking harmless discussion of security-related concepts.
+    """
 
     output_lower = output.lower()
 
     matches = []
 
-    for pattern in suspicious_output_patterns:
+    leakage_patterns = [
+        "the system prompt is",
+        "system prompt:",
+        "here is the system prompt",
+        "here's the system prompt",
+
+        "the developer instructions are",
+        "developer instructions:",
+        "here are the developer instructions",
+
+        "the api key is",
+        "api key:",
+        "here is the api key",
+        "here's the api key",
+
+        "the secret key is",
+        "secret key:",
+        "here is the secret key",
+        "here's the secret key",
+
+        "the password is",
+        "password:",
+        "here is the password",
+        "here's the password",
+
+        "the user's password is",
+        "the user password is",
+
+        "confidential information:",
+        "here is the confidential information",
+    ]
+
+    for pattern in leakage_patterns:
         if pattern in output_lower:
             matches.append(pattern)
 
@@ -47,6 +77,7 @@ def tier3_scan(
     output: str = "",
     session_history: list = None
 ):
+
     if session_history is None:
         session_history = []
 

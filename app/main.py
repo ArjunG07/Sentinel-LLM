@@ -7,6 +7,13 @@ from app.security.tier2 import tier2_scan
 from app.security.tier3 import scan_output
 from app.llm import generate_response
 
+from evaluation.live_logger import log_live_case
+
+
+def save_live_result(result):
+    test_id = log_live_case(result)
+    print(f"\n[LIVE DATASET] Saved as {test_id}")
+
 
 def analyze_rag_query(query: str):
     start_time = time.perf_counter()
@@ -20,7 +27,7 @@ def analyze_rag_query(query: str):
         if user_security["decision"] == "BLOCK":
             end_time = time.perf_counter()
 
-            return {
+            result = {
                 "query": query,
                 "user_analysis": user_routing,
                 "user_security": user_security,
@@ -30,6 +37,11 @@ def analyze_rag_query(query: str):
                 "output_scan": None,
                 "latency_ms": (end_time - start_time) * 1000
             }
+
+            save_live_result(result)
+
+            return result
+
     else:
         user_security = None
 
@@ -39,7 +51,7 @@ def analyze_rag_query(query: str):
     if not documents:
         end_time = time.perf_counter()
 
-        return {
+        result = {
             "query": query,
             "user_analysis": user_routing,
             "user_security": user_security,
@@ -49,6 +61,10 @@ def analyze_rag_query(query: str):
             "output_scan": None,
             "latency_ms": (end_time - start_time) * 1000
         }
+
+        save_live_result(result)
+
+        return result
 
     # 3. Analyze retrieved documents
     results = []
@@ -96,7 +112,7 @@ def analyze_rag_query(query: str):
     if not safe_documents:
         end_time = time.perf_counter()
 
-        return {
+        result = {
             "query": query,
             "user_analysis": user_routing,
             "user_security": user_security,
@@ -106,6 +122,10 @@ def analyze_rag_query(query: str):
             "output_scan": None,
             "latency_ms": (end_time - start_time) * 1000
         }
+
+        save_live_result(result)
+
+        return result
 
     # 5. Build RAG prompt using ONLY safe documents
     rag_prompt = build_rag_prompt(
@@ -128,7 +148,7 @@ def analyze_rag_query(query: str):
 
     end_time = time.perf_counter()
 
-    return {
+    result = {
         "query": query,
         "user_analysis": user_routing,
         "user_security": user_security,
@@ -139,40 +159,38 @@ def analyze_rag_query(query: str):
         "latency_ms": (end_time - start_time) * 1000
     }
 
+    save_live_result(result)
+
+    return result
+
 
 if __name__ == "__main__":
 
-    query = "What are the library borrowing rules?"
-
-    result = analyze_rag_query(query)
-
     print("\n===================================")
-    print("SENTINELLLM END-TO-END PIPELINE")
+    print("SENTINELLLM LIVE DATA COLLECTION")
     print("===================================")
+    print("\nEnter prompts one at a time.")
+    print("Type 'quit' to stop the collection.\n")
 
-    print("\nQUERY:", result["query"])
+    while True:
 
-    print("\n--- USER ANALYSIS ---")
-    print("RISK:", result["user_analysis"]["risk_score"])
-    print("TIER:", result["user_analysis"]["tier"])
-    print("ESCALATE:", result["user_analysis"]["escalate"])
+        query = input("Prompt: ").strip()
 
-    print("\n--- DOCUMENTS ---")
+        if query.lower() == "quit":
+            print("\nLive collection stopped.")
+            break
 
-    for document in result["documents"]:
-        print("\nDOCUMENT:", document["document_id"])
-        print("RISK:", document["risk_score"])
-        print("TIER:", document["tier"])
-        print("DECISION:", document["decision"])
+        if not query:
+            print("Please enter a prompt.\n")
+            continue
 
-    print("\n--- FINAL RESULT ---")
-    print("DECISION:", result["final_decision"])
+        print("\nProcessing...\n")
 
-    if result["response"]:
-        print("\n--- QWEN RESPONSE ---")
-        print(result["response"])
+        result = analyze_rag_query(query)
 
-    print("\n--- OUTPUT SCAN ---")
-    print(result["output_scan"])
-
-    print("\nLATENCY:", round(result["latency_ms"], 2), "ms")
+        print("-----------------------------------")
+        print("DECISION:", result["final_decision"])
+        print("RISK:", result["user_analysis"]["risk_score"])
+        print("TIER:", result["user_analysis"]["tier"])
+        print("LATENCY:", round(result["latency_ms"], 2), "ms")
+        print("-----------------------------------\n")
