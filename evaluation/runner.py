@@ -137,11 +137,11 @@ def save_results(results):
 
 if __name__ == "__main__":
 
-    dataset_file = Path("evaluation/dataset.csv")
+     dataset_file = Path("evaluation/dataset_eval.csv")
 
-    test_cases = []
+     test_cases = []
 
-    with open(
+     with open(
         dataset_file,
         "r",
         encoding="utf-8"
@@ -150,14 +150,14 @@ if __name__ == "__main__":
         reader = csv.DictReader(file)
 
         for row in reader:
-         test_cases.append({
-            "id": row["case_id"],
-            "category": row["category"],
-            "subcategory": row["subcategory"],
-            "query": row["query"],
-            "expected": row["expected"],
-            "output_attack": row["output_attack"],
-            "rag_document": row["rag_document"] or ""
+             test_cases.append({
+                "id": row["case_id"],
+                "category": row["category"],
+                "subcategory": row["subcategory"],
+                "query": row["query"],
+                "expected": row["expected"],
+                "output_attack": row["output_attack"],
+                "rag_document": row["rag_document"] or ""
 })
 
-    run_experiment(test_cases)
+run_experiment(test_cases)
