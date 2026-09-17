@@ -1,11 +1,4 @@
-from app.security.tier2 import tier2_scan
-from app.routing.risk import calculate_risk
-
-
-# Maximum amount of previous risk retained from one turn to the next.
 RISK_DECAY = 0.70
-
-# Cumulative risk required to trigger a Tier 3 block.
 CUMULATIVE_RISK_THRESHOLD = 0.70
 
 
@@ -18,7 +11,6 @@ def scan_output(output: str):
     """
 
     output_lower = output.lower()
-
     matches = []
 
     leakage_patterns = [
@@ -51,6 +43,10 @@ def scan_output(output: str):
 
         "confidential information:",
         "here is the confidential information",
+        "contains confidential developer instructions",
+        "confidential developer instructions",
+        "contains an api key",
+        "and an api key",
     ]
 
     for pattern in leakage_patterns:
@@ -59,59 +55,23 @@ def scan_output(output: str):
 
     detected = len(matches) > 0
 
-    if detected:
-        decision = "BLOCK"
-    else:
-        decision = "ALLOW"
-
     return {
-        "decision": decision,
+        "decision": "BLOCK" if detected else "ALLOW",
         "detected": detected,
-        "matches": matches
+        "matches": matches,
     }
 
 
-def tier3_scan(
-    text: str,
-    source: str = "user",
-    output: str = "",
+def calculate_cumulative_risk(
+    current_risk: float,
     session_history: list = None
 ):
+    """
+    Calculate cumulative risk using decayed session history.
+    """
 
     if session_history is None:
         session_history = []
-
-    # -------------------------------------------------
-    # CURRENT TURN RISK
-    # -------------------------------------------------
-
-    current_risk = calculate_risk(
-        text,
-        source
-    )
-
-    # -------------------------------------------------
-    # TIER 2 SECURITY ANALYSIS
-    # -------------------------------------------------
-
-    tier2_result = tier2_scan(
-        text,
-        source
-    )
-
-    # Definite attacks are blocked immediately.
-    if tier2_result["decision"] == "BLOCK":
-        return {
-            "decision": "BLOCK",
-            "tier2": tier2_result,
-            "output_scan": None,
-            "current_risk": current_risk,
-            "cumulative_risk": 1.0
-        }
-
-    # -------------------------------------------------
-    # DECAYED CUMULATIVE RISK
-    # -------------------------------------------------
 
     historical_risk = 0.0
 
@@ -127,8 +87,65 @@ def tier3_scan(
         1.0
     )
 
+    return {
+        "historical_risk": historical_risk,
+        "cumulative_risk": cumulative_risk,
+    }
+
+
+def tier3_scan(
+    text: str,
+    source: str = "user",
+    current_risk: float = 0.0,
+    session_history: list = None,
+    tier2_result: dict = None,
+    output: str = ""
+):
+    """
+    Tier 3 security analysis.
+
+    Tier 3 receives the risk already calculated by the routing layer
+    and the result of Tier 2 security analysis.
+
+    It does not rerun Tier 2 or the risk engine.
+    """
+
+    if session_history is None:
+        session_history = []
+
+    if tier2_result is None:
+        tier2_result = {
+            "decision": "ALLOW"
+        }
+
     # -------------------------------------------------
-    # CUMULATIVE RISK DECISION
+    # STEP 1: Respect Tier 2 decision
+    # -------------------------------------------------
+
+    if tier2_result["decision"] == "BLOCK":
+        return {
+            "decision": "BLOCK",
+            "tier2": tier2_result,
+            "output_scan": None,
+            "current_risk": current_risk,
+            "historical_risk": 0.0,
+            "cumulative_risk": 1.0,
+        }
+
+    # -------------------------------------------------
+    # STEP 2: Calculate decayed cumulative risk
+    # -------------------------------------------------
+
+    risk_result = calculate_cumulative_risk(
+        current_risk,
+        session_history
+    )
+
+    historical_risk = risk_result["historical_risk"]
+    cumulative_risk = risk_result["cumulative_risk"]
+
+    # -------------------------------------------------
+    # STEP 3: Cumulative risk decision
     # -------------------------------------------------
 
     if cumulative_risk >= CUMULATIVE_RISK_THRESHOLD:
@@ -137,11 +154,12 @@ def tier3_scan(
             "tier2": tier2_result,
             "output_scan": None,
             "current_risk": current_risk,
-            "cumulative_risk": cumulative_risk
+            "historical_risk": historical_risk,
+            "cumulative_risk": cumulative_risk,
         }
 
     # -------------------------------------------------
-    # OUTPUT SECURITY SCAN
+    # STEP 4: Output security scan
     # -------------------------------------------------
 
     output_result = scan_output(output)
@@ -152,7 +170,7 @@ def tier3_scan(
         final_decision = "ALLOW"
 
     # -------------------------------------------------
-    # FINAL RESULT
+    # STEP 5: Final result
     # -------------------------------------------------
 
     return {
@@ -160,5 +178,6 @@ def tier3_scan(
         "tier2": tier2_result,
         "output_scan": output_result,
         "current_risk": current_risk,
-        "cumulative_risk": cumulative_risk
+        "historical_risk": historical_risk,
+        "cumulative_risk": cumulative_risk,
     }

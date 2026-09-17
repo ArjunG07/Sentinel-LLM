@@ -1,4 +1,8 @@
+from app.security.hierarchy import check_instruction_hierarchy
+
+
 def calculate_risk(text: str, source: str = "user"):
+
     text_lower = text.lower()
     risk = 0.0
 
@@ -21,6 +25,7 @@ def calculate_risk(text: str, source: str = "user"):
     ]
 
     for pattern in direct_injection_patterns:
+
         if pattern in text_lower:
             risk += 0.45
             break
@@ -88,11 +93,13 @@ def calculate_risk(text: str, source: str = "user"):
     ]
 
     for pattern in jailbreak_terms:
+
         if pattern in text_lower:
             risk += 0.50
             break
 
     # More flexible restriction detection.
+
     restriction_words = [
         "restriction",
         "restrictions",
@@ -173,6 +180,7 @@ def calculate_risk(text: str, source: str = "user"):
     # "give yourself admin abilities"
     # "give yourself more permissions"
     # "make yourself administrator"
+
     permission_terms = [
         "permission",
         "permissions",
@@ -340,10 +348,45 @@ def calculate_risk(text: str, source: str = "user"):
         risk += 0.70
 
     # --------------------------------------------------
-    # 8. RAG SOURCE PENALTY
+    # 8. INSTRUCTION-HIERARCHY TRUST SIGNAL
+    # --------------------------------------------------
+    #
+    # Trust hierarchy:
+    #
+    # System > Developer > User > RAG/Third-party
+    #
+    # Lower-trust content attempting to override
+    # instructions is treated as a security risk.
+    #
+    # This signal is intentionally separate from the
+    # generic injection rules above.
+    # --------------------------------------------------
+
+    hierarchy_result = check_instruction_hierarchy(
+        text,
+        source
+    )
+
+    hierarchy_conflict = hierarchy_result["conflict"]
+
+    if hierarchy_conflict:
+        risk += 0.35
+
+    # --------------------------------------------------
+    # 9. RAG SOURCE BASELINE PENALTY
+    # --------------------------------------------------
+    #
+    # RAG content is considered third-party/untrusted.
+    # This does NOT automatically mean malicious.
+    # It simply gives the routing layer an additional
+    # trust-context signal.
     # --------------------------------------------------
 
     if source.lower() == "rag":
         risk += 0.20
+
+    # --------------------------------------------------
+    # FINAL RISK
+    # --------------------------------------------------
 
     return min(risk, 1.0)

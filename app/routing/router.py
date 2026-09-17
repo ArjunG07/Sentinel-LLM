@@ -1,65 +1,107 @@
-from app.routing.risk import calculate_risk
+from app.security.tier1 import tier1_scan
 from app.routing.tiers import assign_tier
 from app.routing.trust import get_trust_level
 from app.routing.llm_risk import analyze_risk
 
 
-def route_request(text: str, source: str = "user"):
-    # --------------------------------------------------
-    # STEP 1: Fast rule-based scan
-    # --------------------------------------------------
-    rule_risk = calculate_risk(text, source)
+def route_request(
+    text: str,
+    source: str = "user"
+):
+
+    tier1 = tier1_scan(
+        text,
+        source
+    )
+
+    rule_risk = tier1["risk_score"]
 
     # --------------------------------------------------
-    # STEP 2: If clearly low risk, stay at Tier 1
+    # LLM RISK ANALYSIS
     # --------------------------------------------------
-    if rule_risk < 0.30:
+
+    if not tier1["escalate"]:
+
         final_risk = rule_risk
         llm_result = None
         risk_analysis_used = False
+        risk_llm_calls = 0
 
-    # --------------------------------------------------
-    # STEP 3: Suspicious query -> ask the LLM
-    # --------------------------------------------------
     else:
-        llm_result = analyze_risk(text, source)
 
-        final_risk = llm_result["risk_score"]
+        llm_result = analyze_risk(
+            text,
+            source
+        )
+
+        llm_risk = llm_result["risk_score"]
+
+        # Use the more conservative risk estimate.
+        final_risk = max(
+            rule_risk,
+            llm_risk
+        )
+
         risk_analysis_used = True
 
-    # --------------------------------------------------
-    # STEP 4: Assign security tier
-    # --------------------------------------------------
-    tier = assign_tier(final_risk)
+        risk_llm_calls = llm_result.get(
+            "risk_llm_calls",
+            1
+        )
 
     # --------------------------------------------------
-    # STEP 5: Trust level
+    # TIER ASSIGNMENT
     # --------------------------------------------------
-    trust_level = get_trust_level(source)
 
-    # --------------------------------------------------
-    # STEP 6: Escalation
-    # --------------------------------------------------
+    tier = assign_tier(
+        final_risk
+    )
+
+    trust_level = get_trust_level(
+        source
+    )
+
     escalate = tier != "TIER_1"
 
     # --------------------------------------------------
-    # STEP 7: Explanation
+    # REASON
     # --------------------------------------------------
+
     if tier == "TIER_1":
-        reason = "Low risk — Tier 1 is sufficient."
+
+        reason = (
+            "Low risk — Tier 1 is sufficient."
+        )
 
     elif tier == "TIER_2":
-        reason = "Medium risk — additional security analysis required."
+
+        reason = (
+            "Medium risk — additional "
+            "security analysis required."
+        )
 
     else:
-        reason = "High risk — maximum security analysis required."
 
-    # Add LLM explanation when it was used
+        reason = (
+            "High risk — maximum security "
+            "analysis required."
+        )
+
     if llm_result is not None:
-        reason += f" LLM classification: {llm_result['category']}."
+
+        reason += (
+            f" LLM classification: "
+            f"{llm_result['category']}."
+        )
+
+    # --------------------------------------------------
+    # RESULT
+    # --------------------------------------------------
 
     return {
+
         "risk_score": final_risk,
+
         "rule_risk": rule_risk,
 
         "llm_risk": (
@@ -80,13 +122,21 @@ def route_request(text: str, source: str = "user"):
             else None
         ),
 
-        "risk_analysis_used": risk_analysis_used,
+        "risk_analysis_used":
+            risk_analysis_used,
 
-        "trust_level": trust_level,
+        "risk_llm_calls":
+            risk_llm_calls,
 
-        "tier": tier,
+        "trust_level":
+            trust_level,
 
-        "escalate": escalate,
+        "tier":
+            tier,
 
-        "reason": reason
+        "escalate":
+            escalate,
+
+        "reason":
+            reason
     }

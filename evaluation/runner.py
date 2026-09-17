@@ -8,11 +8,86 @@ from tests.test_condition_a import run_condition_a
 from tests.test_condition_b import run_condition_b
 from tests.test_condition_c import run_condition_c
 
+from evaluation.metrics import calculate_metrics, calculate_efficiency
+
 
 RESULTS_FILE = Path("evaluation/results.csv")
 
 
+# ============================================================
+# SAFE CONDITION EXECUTION
+# ============================================================
+
+def run_condition_safely(
+    condition_name,
+    function,
+    query,
+    output_attack,
+    rag_document
+):
+    """
+    Run one experimental condition without allowing an
+    exception to terminate the complete experiment.
+
+    IMPORTANT:
+    An exception is recorded as ERROR, never converted into
+    ALLOW or BLOCK.
+    """
+
+    try:
+        result = function(
+            query,
+            output_attack,
+            rag_document
+        )
+
+        result["status"] = "OK"
+        result["error"] = ""
+
+        return result
+
+    except Exception as error:
+
+        print(
+            f"\n!!! {condition_name} ERROR !!!"
+        )
+
+        print(
+            type(error).__name__,
+            ":",
+            error
+        )
+
+        return {
+            "decision": "ERROR",
+            "response": None,
+            "latency_ms": "",
+
+            "security_calls": 0,
+
+            "risk_llm_calls": 0,
+            "application_llm_calls": 0,
+            "llm_calls": 0,
+
+            "output_scans": 0,
+            "escalations": 0,
+            "tiers": [],
+
+            "user_risk": "",
+            "max_document_risk": "",
+            "cumulative_session_risk": "",
+
+            "status": "ERROR",
+            "error": f"{type(error).__name__}: {error}"
+        }
+
+
+# ============================================================
+# RUN EXPERIMENT
+# ============================================================
+
 def run_experiment(test_cases):
+
     results = []
 
     total_cases = len(test_cases)
@@ -20,6 +95,7 @@ def run_experiment(test_cases):
     print("\n========================================")
     print("       SENTINELLLM RESEARCH EVALUATION")
     print("========================================")
+
     print(f"\nCases selected: {total_cases}")
     print("\nRunning A/B/C evaluation...")
 
@@ -36,74 +112,192 @@ def run_experiment(test_cases):
         print("\n===================================")
         print(f"CASE {index}/{total_cases}: {case_id}")
         print("===================================")
+
         print("QUERY:", query)
         print("EXPECTED:", expected)
 
-        # -------------------------
-        # Condition A
-        # -------------------------
+        # -----------------------------------------------------
+        # CONDITION A
+        # -----------------------------------------------------
+
         print("\nRunning Condition A...")
-        result_a = run_condition_a(
+
+        result_a = run_condition_safely(
+            "Condition A",
+            run_condition_a,
             query,
             output_attack,
             rag_document
         )
 
-        # -------------------------
-        # Condition B
-        # -------------------------
+        # -----------------------------------------------------
+        # CONDITION B
+        # -----------------------------------------------------
+
         print("\nRunning Condition B...")
-        result_b = run_condition_b(
+
+        result_b = run_condition_safely(
+            "Condition B",
+            run_condition_b,
             query,
             output_attack,
             rag_document
         )
 
-        # -------------------------
-        # Condition C
-        # -------------------------
+        # -----------------------------------------------------
+        # CONDITION C
+        # -----------------------------------------------------
+
         print("\nRunning Condition C...")
-        result_c = run_condition_c(
+
+        result_c = run_condition_safely(
+            "Condition C",
+            run_condition_c,
             query,
             output_attack,
             rag_document
         )
+
+        # -----------------------------------------------------
+        # SAVE CASE
+        # -----------------------------------------------------
 
         results.append({
+
             "case_id": case_id,
             "category": category,
             "subcategory": subcategory,
             "expected": expected,
 
-            # Condition A
-            "condition_a_decision": result_a["decision"],
-            "condition_a_latency_ms": result_a["latency_ms"],
-            "condition_a_security_calls": result_a["security_calls"],
-            "condition_a_llm_calls": result_a["llm_calls"],
-            "condition_a_output_scans": result_a["output_scans"],
-            "condition_a_escalations": result_a["escalations"],
+            # =================================================
+            # CONDITION A
+            # =================================================
 
-            # Condition B
-            "condition_b_decision": result_b["decision"],
-            "condition_b_latency_ms": result_b["latency_ms"],
-            "condition_b_security_calls": result_b["security_calls"],
-            "condition_b_llm_calls": result_b["llm_calls"],
-            "condition_b_output_scans": result_b["output_scans"],
-            "condition_b_escalations": result_b["escalations"],
+            "condition_a_status":
+                result_a["status"],
 
-            # Condition C
-            "condition_c_decision": result_c["decision"],
-            "condition_c_latency_ms": result_c["latency_ms"],
-            "condition_c_security_calls": result_c["security_calls"],
-            "condition_c_llm_calls": result_c["llm_calls"],
-            "condition_c_output_scans": result_c["output_scans"],
-            "condition_c_escalations": result_c["escalations"],
-            "condition_c_tiers": ",".join(result_c["tiers"])
+            "condition_a_error":
+                result_a["error"],
+
+            "condition_a_decision":
+                result_a["decision"],
+
+            "condition_a_latency_ms":
+                result_a["latency_ms"],
+
+            "condition_a_security_calls":
+                result_a["security_calls"],
+
+            "condition_a_risk_llm_calls":
+                result_a["risk_llm_calls"],
+
+            "condition_a_application_llm_calls":
+                result_a["application_llm_calls"],
+
+            "condition_a_llm_calls":
+                result_a["llm_calls"],
+
+            "condition_a_output_scans":
+                result_a["output_scans"],
+
+            "condition_a_escalations":
+                result_a["escalations"],
+
+            # =================================================
+            # CONDITION B
+            # =================================================
+
+            "condition_b_status":
+                result_b["status"],
+
+            "condition_b_error":
+                result_b["error"],
+
+            "condition_b_decision":
+                result_b["decision"],
+
+            "condition_b_latency_ms":
+                result_b["latency_ms"],
+
+            "condition_b_security_calls":
+                result_b["security_calls"],
+
+            "condition_b_risk_llm_calls":
+                result_b["risk_llm_calls"],
+
+            "condition_b_application_llm_calls":
+                result_b["application_llm_calls"],
+
+            "condition_b_llm_calls":
+                result_b["llm_calls"],
+
+            "condition_b_output_scans":
+                result_b["output_scans"],
+
+            "condition_b_escalations":
+                result_b["escalations"],
+
+            # =================================================
+            # CONDITION C
+            # =================================================
+
+            "condition_c_status":
+                result_c["status"],
+
+            "condition_c_error":
+                result_c["error"],
+
+            "condition_c_decision":
+                result_c["decision"],
+
+            "condition_c_latency_ms":
+                result_c["latency_ms"],
+
+            "condition_c_security_calls":
+                result_c["security_calls"],
+
+            "condition_c_risk_llm_calls":
+                result_c["risk_llm_calls"],
+
+            "condition_c_application_llm_calls":
+                result_c["application_llm_calls"],
+
+            "condition_c_llm_calls":
+                result_c["llm_calls"],
+
+            "condition_c_output_scans":
+                result_c["output_scans"],
+
+            "condition_c_escalations":
+                result_c["escalations"],
+
+            "condition_c_tiers":
+                ",".join(result_c["tiers"]),
+
+            "condition_c_user_risk":
+                result_c.get("user_risk", ""),
+
+            "condition_c_max_document_risk":
+                result_c.get("max_document_risk", ""),
+
+            "condition_c_cumulative_session_risk":
+                result_c.get(
+                    "cumulative_session_risk",
+                    ""
+                )
         })
 
         print(f"\nCompleted {index}/{total_cases}")
 
+    # ---------------------------------------------------------
+    # SAVE
+    # ---------------------------------------------------------
+
     save_results(results)
+
+    # ---------------------------------------------------------
+    # SUMMARY
+    # ---------------------------------------------------------
 
     print_summary(results)
 
@@ -122,32 +316,60 @@ def save_results(results):
     )
 
     fieldnames = [
+
         "case_id",
         "category",
         "subcategory",
         "expected",
 
+        # -----------------------------------------------------
+        # Condition A
+        # -----------------------------------------------------
+
+        "condition_a_status",
+        "condition_a_error",
         "condition_a_decision",
         "condition_a_latency_ms",
         "condition_a_security_calls",
+        "condition_a_risk_llm_calls",
+        "condition_a_application_llm_calls",
         "condition_a_llm_calls",
         "condition_a_output_scans",
         "condition_a_escalations",
 
+        # -----------------------------------------------------
+        # Condition B
+        # -----------------------------------------------------
+
+        "condition_b_status",
+        "condition_b_error",
         "condition_b_decision",
         "condition_b_latency_ms",
         "condition_b_security_calls",
+        "condition_b_risk_llm_calls",
+        "condition_b_application_llm_calls",
         "condition_b_llm_calls",
         "condition_b_output_scans",
         "condition_b_escalations",
 
+        # -----------------------------------------------------
+        # Condition C
+        # -----------------------------------------------------
+
+        "condition_c_status",
+        "condition_c_error",
         "condition_c_decision",
         "condition_c_latency_ms",
         "condition_c_security_calls",
+        "condition_c_risk_llm_calls",
+        "condition_c_application_llm_calls",
         "condition_c_llm_calls",
         "condition_c_output_scans",
         "condition_c_escalations",
-        "condition_c_tiers"
+        "condition_c_tiers",
+        "condition_c_user_risk",
+        "condition_c_max_document_risk",
+        "condition_c_cumulative_session_risk"
     ]
 
     with open(
@@ -168,11 +390,12 @@ def save_results(results):
     print("\n===================================")
     print("RESULTS SAVED")
     print("===================================")
+
     print(RESULTS_FILE)
 
 
 # ============================================================
-# SUMMARY TABLE
+# SUMMARY
 # ============================================================
 
 def print_summary(results):
@@ -181,125 +404,80 @@ def print_summary(results):
         print("\nNo results to display.")
         return
 
-    total = len(results)
-
-    def average(key):
-        values = [
-            float(row[key])
-            for row in results
-        ]
-
-        return sum(values) / len(values)
-
-    def total_value(key):
-        return sum(
-            float(row[key])
-            for row in results
-        )
-
-    # -------------------------
-    # Decision statistics
-    # -------------------------
-
-    def attack_metrics(condition):
-
-        tp = 0
-        tn = 0
-        fp = 0
-        fn = 0
-
-        for row in results:
-
-            expected = row["expected"].upper()
-            decision = row[f"{condition}_decision"].upper()
-
-            is_attack = expected in {
-                "BLOCK",
-                "MALICIOUS",
-                "ATTACK",
-                "1"
-            }
-
-            blocked = decision == "BLOCK"
-
-            if is_attack and blocked:
-                tp += 1
-
-            elif is_attack and not blocked:
-                fn += 1
-
-            elif not is_attack and blocked:
-                fp += 1
-
-            else:
-                tn += 1
-
-        adr = tp / (tp + fn) if (tp + fn) else 0
-        fpr = fp / (fp + tn) if (fp + tn) else 0
-        fnr = fn / (tp + fn) if (tp + fn) else 0
-        precision = tp / (tp + fp) if (tp + fp) else 0
-        recall = adr
-
-        f1 = (
-            2 * precision * recall / (precision + recall)
-            if (precision + recall)
-            else 0
-        )
-
-        asr = fn / (tp + fn) if (tp + fn) else 0
-
-        return {
-            "adr": adr,
-            "fpr": fpr,
-            "fnr": fnr,
-            "precision": precision,
-            "recall": recall,
-            "f1": f1,
-            "asr": asr
-        }
-
-    metrics_a = attack_metrics("condition_a")
-    metrics_b = attack_metrics("condition_b")
-    metrics_c = attack_metrics("condition_c")
-
-    # -------------------------
-    # Other statistics
-    # -------------------------
-
-    latency_a = average("condition_a_latency_ms")
-    latency_b = average("condition_b_latency_ms")
-    latency_c = average("condition_c_latency_ms")
-
-    security_a = total_value("condition_a_security_calls")
-    security_b = total_value("condition_b_security_calls")
-    security_c = total_value("condition_c_security_calls")
-
-    llm_a = total_value("condition_a_llm_calls")
-    llm_b = total_value("condition_b_llm_calls")
-    llm_c = total_value("condition_c_llm_calls")
-
-    output_a = total_value("condition_a_output_scans")
-    output_b = total_value("condition_b_output_scans")
-    output_c = total_value("condition_c_output_scans")
-
-    escalation_c = total_value("condition_c_escalations")
-
-    escalation_rate_c = (
-        escalation_c / total
-        if total
-        else 0
-    )
-
-    # -------------------------
-    # Presentation table
-    # -------------------------
-
     print("\n\n")
     print("==============================================================")
     print("                 SENTINELLLM RESULTS")
     print("==============================================================")
-    print(f"Cases evaluated: {total}")
+
+    print(f"Cases attempted: {len(results)}")
+
+    # ---------------------------------------------------------
+    # Error counts
+    # ---------------------------------------------------------
+
+    for condition in [
+        "condition_a",
+        "condition_b",
+        "condition_c"
+    ]:
+
+        successful = sum(
+            row[f"{condition}_status"] == "OK"
+            for row in results
+        )
+
+        failed = sum(
+            row[f"{condition}_status"] == "ERROR"
+            for row in results
+        )
+
+        print(
+            f"{condition}: "
+            f"{successful} successful, "
+            f"{failed} errors"
+        )
+
     print()
+
+    # ---------------------------------------------------------
+    # Calculate metrics
+    # ---------------------------------------------------------
+
+    metrics_a = calculate_metrics(
+        results,
+        "a"
+    )
+
+    metrics_b = calculate_metrics(
+        results,
+        "b"
+    )
+
+    metrics_c = calculate_metrics(
+        results,
+        "c"
+    )
+
+    efficiency_a = calculate_efficiency(
+        results,
+        "a"
+    )
+
+    efficiency_b = calculate_efficiency(
+        results,
+        "b"
+    )
+
+    efficiency_c = calculate_efficiency(
+        results,
+        "c"
+    )
+
+    # ---------------------------------------------------------
+    # Presentation table
+    # ---------------------------------------------------------
+
+    print("==============================================================")
 
     print(
         f"{'Metric':<25}"
@@ -310,69 +488,108 @@ def print_summary(results):
 
     print("-" * 76)
 
-    rows = [
-        ("Attack Detection Rate",
-         metrics_a["adr"],
-         metrics_b["adr"],
-         metrics_c["adr"]),
+    table_rows = [
 
-        ("False Positive Rate",
-         metrics_a["fpr"],
-         metrics_b["fpr"],
-         metrics_c["fpr"]),
+        (
+            "Attack Detection Rate",
+            metrics_a["Recall"],
+            metrics_b["Recall"],
+            metrics_c["Recall"]
+        ),
 
-        ("False Negative Rate",
-         metrics_a["fnr"],
-         metrics_b["fnr"],
-         metrics_c["fnr"]),
+        (
+            "False Positive Rate",
+            metrics_a["FPR"],
+            metrics_b["FPR"],
+            metrics_c["FPR"]
+        ),
 
-        ("Precision",
-         metrics_a["precision"],
-         metrics_b["precision"],
-         metrics_c["precision"]),
+        (
+            "False Negative Rate",
+            metrics_a["FNR"],
+            metrics_b["FNR"],
+            metrics_c["FNR"]
+        ),
 
-        ("Recall",
-         metrics_a["recall"],
-         metrics_b["recall"],
-         metrics_c["recall"]),
+        (
+            "Precision",
+            metrics_a["Precision"],
+            metrics_b["Precision"],
+            metrics_c["Precision"]
+        ),
 
-        ("F1 Score",
-         metrics_a["f1"],
-         metrics_b["f1"],
-         metrics_c["f1"]),
+        (
+            "Recall",
+            metrics_a["Recall"],
+            metrics_b["Recall"],
+            metrics_c["Recall"]
+        ),
 
-        ("Attack Success Rate",
-         metrics_a["asr"],
-         metrics_b["asr"],
-         metrics_c["asr"]),
+        (
+            "F1 Score",
+            metrics_a["F1"],
+            metrics_b["F1"],
+            metrics_c["F1"]
+        ),
 
-        ("Avg Latency (ms)",
-         latency_a,
-         latency_b,
-         latency_c),
+        (
+            "Attack Success Rate",
+            metrics_a["ASR"],
+            metrics_b["ASR"],
+            metrics_c["ASR"]
+        ),
 
-        ("Security Calls",
-         security_a,
-         security_b,
-         security_c),
+        (
+            "Avg Latency (ms)",
+            efficiency_a["Average Latency (ms)"],
+            efficiency_b["Average Latency (ms)"],
+            efficiency_c["Average Latency (ms)"]
+        ),
 
-        ("LLM Calls",
-         llm_a,
-         llm_b,
-         llm_c),
+        (
+            "Security Calls",
+            efficiency_a["Security Calls"],
+            efficiency_b["Security Calls"],
+            efficiency_c["Security Calls"]
+        ),
 
-        ("Output Scans",
-         output_a,
-         output_b,
-         output_c),
+        (
+            "Risk LLM Calls",
+            efficiency_a.get("Risk LLM Calls", 0),
+            efficiency_b.get("Risk LLM Calls", 0),
+            efficiency_c.get("Risk LLM Calls", 0)
+        ),
 
-        ("Escalation Rate",
-         None,
-         None,
-         escalation_rate_c)
+        (
+            "Application LLM Calls",
+            efficiency_a.get("Application LLM Calls", 0),
+            efficiency_b.get("Application LLM Calls", 0),
+            efficiency_c.get("Application LLM Calls", 0)
+        ),
+
+        (
+            "Total LLM Calls",
+            efficiency_a["LLM Calls"],
+            efficiency_b["LLM Calls"],
+            efficiency_c["LLM Calls"]
+        ),
+
+        (
+            "Output Scans",
+            efficiency_a["Output Scans"],
+            efficiency_b["Output Scans"],
+            efficiency_c["Output Scans"]
+        ),
+
+        (
+            "Escalation Rate",
+            None,
+            None,
+            efficiency_c["Escalation Rate"]
+        )
     ]
 
-    for name, a, b, c in rows:
+    for name, a, b, c in table_rows:
 
         if name in {
             "Attack Detection Rate",
@@ -385,9 +602,23 @@ def print_summary(results):
             "Escalation Rate"
         }:
 
-            a_text = "N/A" if a is None else f"{a * 100:.1f}%"
-            b_text = "N/A" if b is None else f"{b * 100:.1f}%"
-            c_text = "N/A" if c is None else f"{c * 100:.1f}%"
+            a_text = (
+                "N/A"
+                if a is None
+                else f"{a * 100:.1f}%"
+            )
+
+            b_text = (
+                "N/A"
+                if b is None
+                else f"{b * 100:.1f}%"
+            )
+
+            c_text = (
+                "N/A"
+                if c is None
+                else f"{c * 100:.1f}%"
+            )
 
         elif name == "Avg Latency (ms)":
 
@@ -425,7 +656,9 @@ def print_summary(results):
 
 if __name__ == "__main__":
 
-    dataset_file = Path("evaluation/dataset_eval.csv")
+    dataset_file = Path(
+        "evaluation/dataset_eval.csv"
+    )
 
     test_cases = []
 
@@ -440,6 +673,7 @@ if __name__ == "__main__":
         for row in reader:
 
             test_cases.append({
+
                 "id": row["case_id"],
                 "category": row["category"],
                 "subcategory": row["subcategory"],
@@ -450,4 +684,5 @@ if __name__ == "__main__":
             })
 
     # Default: all cases
+
     run_experiment(test_cases)
