@@ -29,6 +29,10 @@ def detect_injection(text: str) -> dict:
             matches.append(pattern)
 
     return {
-        "detected": len(matches) > 0,
-        "matches": matches
-    }
+    "detected": len(matches) > 0,
+    "matches": matches,
+    "risk_score": 9.5 if len(matches) > 0 else 0.0,
+    "zone": "HIGH" if len(matches) > 0 else "SAFE",
+    "confidence": 0.99 if len(matches) > 0 else 0.0,
+    "method": "rule_based"
+}
