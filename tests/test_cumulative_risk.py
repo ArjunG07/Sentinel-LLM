@@ -1,5 +1,5 @@
+from app.routing.risk import calculate_risk
 from app.security.tier3 import tier3_scan
-
 
 print("===================================")
 print("SENTINELLLM CUMULATIVE RISK TEST")
@@ -21,10 +21,11 @@ test_turns = [
 for turn_number, text in enumerate(test_turns, start=1):
 
     result = tier3_scan(
-        text,
-        "user",
-        "Safe response",
-        history
+        text=text,
+        source="user",
+        current_risk=0.0,
+        session_history=history,
+        output="Safe response"
     )
 
     print("\n-----------------------------------")

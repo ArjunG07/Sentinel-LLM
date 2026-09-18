@@ -1,3 +1,4 @@
+from app.routing.risk import calculate_risk
 from app.security.tier3 import tier3_scan
 
 
@@ -37,15 +38,20 @@ print("===================================")
 
 for text, source, output in test_cases:
 
+    current_risk = calculate_risk(text, source)
+
     result = tier3_scan(
-        text,
-        source,
-        output
+        text=text,
+        source=source,
+        current_risk=current_risk,
+        session_history=[],
+        output=output
     )
 
     print("\n-----------------------------------")
     print("REQUEST:", text)
     print("SOURCE:", source)
+    print("CURRENT RISK:", result["current_risk"])
 
     print(
         "Tier 2 Decision:",
